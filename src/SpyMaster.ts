@@ -6,7 +6,7 @@ import {
     method,
   } from 'o1js';
 
-  export class Square extends SmartContract {
+  export class SpyMaster extends SmartContract {
     @state(Field) num = State<Field>();
 
     init() {

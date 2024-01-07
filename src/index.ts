@@ -1,4 +1,4 @@
-import { Square } from './Square.js';
+import { SpyMaster } from './SpyMaster.js';
 import {
   Field,
   Mina,
@@ -20,7 +20,7 @@ const zkAppPrivateKey = PrivateKey.random();
 const zkAppAddress = zkAppPrivateKey.toPublicKey();
 
 // create an instance of Square - and deploy it to zkAppAddress
-const zkAppInstance = new Square(zkAppAddress);
+const zkAppInstance = new SpyMaster(zkAppAddress);
 const deployTxn = await Mina.transaction(deployerAccount, () => {
   AccountUpdate.fundNewAccount(deployerAccount);
   zkAppInstance.deploy();
