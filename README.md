@@ -1,5 +1,8 @@
 # Mina zkApp: Challenge_1
 
+Challenge Statement - 
+[Notion Link to Challenge](https://file.notion.so/f/f/6cb52088-8ba0-489c-b45a-800a7f3b5cf0/b62c79f0-b5e6-42c3-b586-6a59d714e8bb/Challenge_1_-_due_Jan_31.pdf?id=32decac0-5395-41c2-8808-83158318e9c5&table=block&spaceId=6cb52088-8ba0-489c-b45a-800a7f3b5cf0&expirationTimestamp=1704664800000&signature=S7AH3llsIdP52ksftRa8QUVAfzbjBCsYnVmo-2JulV0&downloadName=Challenge+1+-+due+Jan+31.pdf)
+
 ## How to build
 
 ```sh
