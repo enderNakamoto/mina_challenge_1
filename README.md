@@ -35,13 +35,13 @@ number of leaves = 2^(8-1) is 128, Merkle tree wih height 8 is sufficient
 Merkle Tree, Nullifier Tree or just Merkle Map ?
 Using Merkle Map, 
 1. Initiate whitelist of eligible addresses
-  a. Merkle Map withh Track Key Value Pair of -> Address(Key) -> Bool(False)
-  b. can check if address is eligible by checking if value is false
-  c. if false, then address is eligible
-  d. if null, then address is not initiated (not in whitelist)
-  e.  if true, then address has already deposited a secret message
-  f. after Message is deposited, update value to true
 
+  *  Merkle Map withh Track Key Value Pair of -> Address(Key) -> Field(1)
+  *  Thereafter, we can check if address is eligible by checking if value is Field(1)
+  *  if Field(0), the default value then address is not initiated and in whitelist
+  *  After depositing message, we can change the value to Field(2)
+  *  if Field(2), then message has already been deposited
+  * ENUM could be a good data structure to use here
 
 --- 
 
