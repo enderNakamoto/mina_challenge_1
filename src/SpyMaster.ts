@@ -9,9 +9,10 @@ import {
 
   const MAX_NUM_ADDRESSES = 100;
 
+
   export class SpyMaster extends SmartContract {
 
-    // NullifierMerkleMap to store message state 
+    // NullifierMerkleMap to store address message state (uninitiated, whitelisted, or message set)
     // The key is the address, the value is the message state 
     // if value is Field(0), the address is not in the whitelist
     // if value is Field(1), the address is in the whitelist, but message is not set
@@ -92,7 +93,8 @@ import {
 
         // STEP 3: update message
         const messageRootBefore = this.messageRoot.getAndRequireEquals();
-        const [ derivedMessageRoot, _ ] = messageKeyWitness.computeRootAndKey(message);
+        const [ derivedMessageRoot, ] = messageKeyWitness.computeRootAndKey(Field(0));
+        derivedMessageRoot.assertEquals(messageRootBefore);
 
         const [ messageRootAfter,  ] = messageKeyWitness.computeRootAndKey(message);
         this.messageRoot.set(messageRootAfter);
