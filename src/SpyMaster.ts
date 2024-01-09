@@ -4,10 +4,15 @@ import {
     state,
     State,
     method,
+    PublicKey,
+    Poseidon,
     MerkleMapWitness
   } from 'o1js';
 
   const MAX_NUM_ADDRESSES = 100;
+  const UNINITIALIZED_VALUE = Field(0);
+  const WHITELISTED_VALUE = Field(1);
+  const MESSAGE_SET_VALUE = Field(2);
 
 
   export class SpyMaster extends SmartContract {
@@ -51,22 +56,25 @@ import {
 
    // add elgible addresses, set value to Field(1), in nullifierMerkeMap
     @method addEligibleAddress(
-        keyToAdd: Field,
+        addressToAdd: PublicKey,
         keyWitness: MerkleMapWitness,
       ) {
-        // STEP 1: check if the number of addresses reached MAX_NUM_ADDRESSES(100)
+        // STEP 1: change address to key
+        const keyToAdd = Poseidon.hash(addressToAdd.toFields());
+
+        // STEP 2: check if the number of addresses reached MAX_NUM_ADDRESSES(100)
         const numAddressesBefore = this.numAddresses.getAndRequireEquals();
         numAddressesBefore.assertLessThan(MAX_NUM_ADDRESSES);
 
-        // STEP 2: check if the address is already in the whitelist
+        // STEP 3: check if the address is already in the whitelist
         const nullRootBefore = this.nullifierRoot.getAndRequireEquals();
 
-        const [ derivedNullRoot, key ] = keyWitness.computeRootAndKey(Field(0));
+        const [ derivedNullRoot, key ] = keyWitness.computeRootAndKey(UNINITIALIZED_VALUE);
         derivedNullRoot.assertEquals(nullRootBefore);
         key.assertEquals(keyToAdd);
 
         // STEP 3: update add address by updating nullifierRoot
-        const [ nullRootAfter, _ ] = keyWitness.computeRootAndKey(Field(1));
+        const [ nullRootAfter, _ ] = keyWitness.computeRootAndKey(WHITELISTED_VALUE);
         this.nullifierRoot.set(nullRootAfter);
 
         // STEP 4: increment numAddresses
