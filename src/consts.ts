@@ -21,4 +21,5 @@ export namespace Constants {
   export const NOT_WHITELISTED_ERROR = 'address not in whitelist';
   export const MESSAGE_ALREADY_SET_ERROR = 'message already set';
   export const SPY_CANNOT_SET_MESSAGE_ERROR = 'spy is not whitelist or message already set';
+  export const INVALID_MESSAGE_FLAGS_ERROR = 'invalid message flags';
 }
