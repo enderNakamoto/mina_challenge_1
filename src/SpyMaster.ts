@@ -18,6 +18,11 @@ import {
     @state(Field) numMessages = State<Field>();
     @state(Field) numAddresses = State<Field>();
 
+    events = {
+      "message-received": Field,
+    }
+  
+
     init() {
       super.init();
       this.numMessages.set(Field(0));
@@ -100,6 +105,9 @@ import {
         const numMessagesBefore = this.numMessages.getAndRequireEquals()
         const numMessagesAfter = numMessagesBefore.add(Field(1));
         this.numMessages.set(numMessagesAfter);
+
+        // STEP 6: emit event
+        this.emitEvent("message-received", numMessagesAfter);
     }
 
     
