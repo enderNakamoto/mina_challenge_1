@@ -22,4 +22,5 @@ export namespace Constants {
   export const MESSAGE_ALREADY_SET_ERROR = 'message already set';
   export const SPY_CANNOT_SET_MESSAGE_ERROR = 'spy is not whitelist or message already set';
   export const INVALID_MESSAGE_FLAGS_ERROR = 'invalid message flags';
+  export const NOT_ADMIN_ERROR = 'the caller is not admin';
 }

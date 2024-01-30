@@ -21,8 +21,11 @@ const INVALID_FLAG_MESSAGE = Field(1539); // 11000_000011 - condition 1 and 2 wi
 
 function initializeSpy(){
   const spyPrivate = PrivateKey.random();
-  const spy = PublicKey.fromPrivateKey(spyPrivate)
-  return Poseidon.hash(spy.toFields());
+  return { 
+    spyDigest: Poseidon.hash(spyPrivate.toPublicKey().toFields()),
+    spykey: spyPrivate, 
+    spyAccount: spyPrivate.toPublicKey()
+  }
 }
 
 describe('SpyMaster Contract', () => {
@@ -30,6 +33,12 @@ describe('SpyMaster Contract', () => {
     deployerKey: PrivateKey,
     senderAccount: PublicKey,
     senderKey: PrivateKey,
+    notAdminAccount: PublicKey,
+    notAdminKey: PrivateKey,
+    spyOneAccount: PublicKey,
+    spyOneKey: PrivateKey,
+    spyTwoAccount: PublicKey,
+    spyTwoKey: PrivateKey,
     zkAppAddress: PublicKey,
     zkAppPrivateKey: PrivateKey,
     zkAppInstance: SpyMaster,
@@ -49,6 +58,9 @@ describe('SpyMaster Contract', () => {
     // Local.testAccounts is an array of 10 test accounts that have been pre-filled with Mina
     ({ privateKey: deployerKey, publicKey: deployerAccount } = Local.testAccounts[0]);
     ({ privateKey: senderKey, publicKey: senderAccount } = Local.testAccounts[1]);
+    ({ privateKey: notAdminKey, publicKey: notAdminAccount } = Local.testAccounts[2]);
+    ({ privateKey: spyOneKey, publicKey: spyOneAccount } = Local.testAccounts[3]);
+    ({ privateKey: spyTwoKey, publicKey: spyTwoAccount } = Local.testAccounts[4]);
 
     // create a zkApp account
     zkAppPrivateKey = PrivateKey.random();
@@ -60,20 +72,29 @@ describe('SpyMaster Contract', () => {
     messageMap = new MerkleMap();
 
     // deploy the zkApp and initialize the MerkleMaps
-    await localDeployAndInitMap();
+    await localDeploy();
+    await initializeVault();
   });
 
-  async function localDeployAndInitMap() {
+  async function localDeploy() {
     // deploy the zkApp
      txn = await Mina.transaction(deployerAccount, () => {
       AccountUpdate.fundNewAccount(deployerAccount);
       zkAppInstance.deploy();
-      zkAppInstance.initMapRoots(nullifierMap.getRoot(), messageMap.getRoot());
+      
     });
     await txn.prove();
 
     // this tx needs .sign(), because `deploy()` adds an account update that requires signature authorization
     await txn.sign([deployerKey, zkAppPrivateKey]).send();
+  }
+
+  async function initializeVault() {
+      txn = await Mina.transaction(senderAccount, () => {
+        zkAppInstance.initializeState(nullifierMap.getRoot(), messageMap.getRoot());
+      });
+      await txn.prove();
+      await txn.sign([senderKey]).send();
   }
 
   it('sets intitial values as expected', () => {
@@ -91,13 +112,13 @@ describe('SpyMaster Contract', () => {
   });
 
   it ('can add new accounts to whitelist', async () => {
-    let spyKey, nullifierRoot, numAddresses, spyWitness: MerkleMapWitness;
+    let spy, spyKey, nullifierRoot, numAddresses, spyWitness: MerkleMapWitness;
 
      // ----- Adding First Spy to whitelist ---- 
-    spyKey = initializeSpy();
-    spyWitness = nullifierMap.getWitness(spyKey);
+    spy = initializeSpy();
+    spyWitness = nullifierMap.getWitness(spy.spyDigest);
 
-    nullifierMap.set(spyKey, Constants.WHITELISTED_VALUE);
+    nullifierMap.set(spy.spyDigest, Constants.WHITELISTED_VALUE);
 
     txn = await Mina.transaction(senderAccount, () => {
       zkAppInstance.addEligibleAddress(spyWitness);
@@ -115,10 +136,10 @@ describe('SpyMaster Contract', () => {
 
     // ----- Adding Second Spy to whitelist ---- 
 
-    spyKey = initializeSpy();
-    spyWitness = nullifierMap.getWitness(spyKey);
+    spy = initializeSpy();
+    spyWitness = nullifierMap.getWitness(spy.spyDigest);
 
-    nullifierMap.set(spyKey, Constants.WHITELISTED_VALUE);
+    nullifierMap.set(spy.spyDigest, Constants.WHITELISTED_VALUE);
 
     txn = await Mina.transaction(senderAccount, () => {
       zkAppInstance.addEligibleAddress(spyWitness);
@@ -136,12 +157,12 @@ describe('SpyMaster Contract', () => {
   });
 
   it ('cannot add an already whitelisted account to whitelist', async () => {
-    let spyKey, nullifierRoot, numAddresses, spyWitness: MerkleMapWitness;
+    let spy, spyKey, nullifierRoot, numAddresses, spyWitness: MerkleMapWitness;
       
-    spyKey = initializeSpy();
-    spyWitness = nullifierMap.getWitness(spyKey);
+    spy = initializeSpy();
+    spyWitness = nullifierMap.getWitness(spy.spyDigest);
 
-    nullifierMap.set(spyKey, Constants.WHITELISTED_VALUE);
+    nullifierMap.set(spy.spyDigest, Constants.WHITELISTED_VALUE);
     const rootAFterFirstAdd = nullifierMap.getRoot();
     
     txn = await Mina.transaction(senderAccount, () => {
@@ -166,11 +187,11 @@ describe('SpyMaster Contract', () => {
   });
 
   it ('cannot add messages to non whitelisted addresses', async () => {
-      let spyKey: Field, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
+      let spy, spyKey: Field, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
 
-    spyKey = initializeSpy();
-    spyNullifierWitness = nullifierMap.getWitness(spyKey);
-    spyMessageWitness = messageMap.getWitness(spyKey);
+    spy = initializeSpy();
+    spyNullifierWitness = nullifierMap.getWitness(spy.spyDigest);
+    spyMessageWitness = messageMap.getWitness(spy.spyDigest);
 
     expect(async () => {
       txn = await Mina.transaction(senderAccount, () => {
@@ -183,15 +204,16 @@ describe('SpyMaster Contract', () => {
     }).rejects.toThrow(Constants.SPY_CANNOT_SET_MESSAGE_ERROR);
   });
 
-  it ('can only add messages to whitelisted addresses', async () => {
-    let spyKey: Field, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
+  it ('only whitelisted spies can add messages', async () => {
+    let spyOneDigest, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
 
-    spyKey = initializeSpy();
-    spyNullifierWitness = nullifierMap.getWitness(spyKey);
-    spyMessageWitness = messageMap.getWitness(spyKey);
-    messageMap.set(spyKey, VALID_FLAG_MESSAGE);
+    spyOneDigest = Poseidon.hash(spyOneKey.toPublicKey().toFields());
+    spyNullifierWitness = nullifierMap.getWitness(spyOneDigest);
 
-    // ----- Adding Spy to whitelist ----
+    spyMessageWitness = messageMap.getWitness(spyOneDigest);
+    messageMap.set(spyOneDigest, VALID_FLAG_MESSAGE);
+
+    // ----- Adding Spy One to whitelist ----
     txn = await Mina.transaction(senderAccount, () => {
       zkAppInstance.addEligibleAddress(spyNullifierWitness);
     });
@@ -203,7 +225,7 @@ describe('SpyMaster Contract', () => {
     expect(numAddresses).toEqual(Field(1));
 
     // ----- Adding message to spy in whitelist ----
-    txn = await Mina.transaction(senderAccount, () => {
+    txn = await Mina.transaction(spyOneAccount, () => {
       zkAppInstance.updateMessages(
         spyNullifierWitness, 
         spyMessageWitness, 
@@ -211,7 +233,7 @@ describe('SpyMaster Contract', () => {
       );
     });
     await txn.prove();
-    await txn.sign([senderKey]).send();
+    await txn.sign([spyOneKey]).send();
 
     // message root state changed correctly after adding new message
     const messageRoot = zkAppInstance.messageRoot.get();
@@ -307,13 +329,15 @@ describe('SpyMaster Contract', () => {
   });
 
   it ('cannot add a message with invalid flags', async () => {
-    let spyKey: Field, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
+    let spyOneDigest, spyNullifierWitness: MerkleMapWitness, spyMessageWitness: MerkleMapWitness;
 
-    spyKey = initializeSpy();
-    spyNullifierWitness = nullifierMap.getWitness(spyKey);
-    spyMessageWitness = messageMap.getWitness(spyKey);
+    spyOneDigest = Poseidon.hash(spyOneKey.toPublicKey().toFields());
+    spyNullifierWitness = nullifierMap.getWitness(spyOneDigest);
 
-    // ----- Adding Spy to whitelist ----
+    spyMessageWitness = messageMap.getWitness(spyOneDigest);
+    messageMap.set(spyOneDigest, VALID_FLAG_MESSAGE);
+
+    // ----- Adding Spy One to whitelist ----
     txn = await Mina.transaction(senderAccount, () => {
       zkAppInstance.addEligibleAddress(spyNullifierWitness);
     });
@@ -326,7 +350,7 @@ describe('SpyMaster Contract', () => {
 
     // ----- Adding message to spy in whitelist ----
     expect(async () => {
-      txn = await Mina.transaction(senderAccount, () => {
+      txn = await Mina.transaction(spyOneAccount, () => {
        zkAppInstance.updateMessages(
         spyNullifierWitness, 
         spyMessageWitness, 
@@ -335,6 +359,19 @@ describe('SpyMaster Contract', () => {
      });
     }).rejects.toThrow(Constants.INVALID_MESSAGE_FLAGS_ERROR);
 
+  });
+
+  it('only admin can add accounts to whitelist', async () => {
+    let spy, spyKey, spyWitness: MerkleMapWitness;
+
+    spy = initializeSpy();
+    spyWitness = nullifierMap.getWitness(spy.spyDigest);
+    
+    expect(async () => {
+      txn = await Mina.transaction(notAdminAccount, () => {
+       zkAppInstance.addEligibleAddress(spyWitness);
+     });
+   }).rejects.toThrow(Constants.NOT_ADMIN_ERROR);
   });
 
 

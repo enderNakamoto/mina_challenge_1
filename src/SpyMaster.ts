@@ -1,6 +1,7 @@
 import {
     Field,
     Bool,
+    Poseidon,
     SmartContract,
     state,
     State,
@@ -13,6 +14,7 @@ import {
 
 
   export class SpyMaster extends SmartContract {
+    @state(Field) admin = State<Field>();
     @state(Field) nullifierRoot = State<Field>();
     @state(Field) messageRoot = State<Field>();
     @state(Field) numMessages = State<Field>();
@@ -31,10 +33,14 @@ import {
 
     // cannot pass in initial state to constructor, so use this method to
     // initialize empty nullifierRoot and messageRoot
-    @method initMapRoots(
+    @method initializeState(
       nullInitialRoot: Field, 
       messageInitialRoot: Field,
       ) {
+
+       // set sender as admin
+       this.admin.set(Poseidon.hash(this.sender.toFields()));     
+
       this.nullifierRoot.set(nullInitialRoot);
       this.messageRoot.set(messageInitialRoot);
     }
@@ -44,6 +50,10 @@ import {
         keyWitness: MerkleMapWitness,
       ) {
         let derivedNullRoot, nullRootAfter, _;
+
+        // STEP 0: check if the sender is admin
+        const currentSender = Poseidon.hash(this.sender.toFields());
+        this.admin.getAndRequireEquals().assertEquals(currentSender, Constants.NOT_ADMIN_ERROR);
 
         // STEP 1: check if the number of addresses reached MAX_NUM_ADDRESSES(100)
         const numAddressesBefore = this.numAddresses.getAndRequireEquals();
@@ -71,6 +81,7 @@ import {
       message: Field,
       ) {
         let derivedNullRoot,
+        derivedNullKey,
         nullRootBefore,
         nullRootAfter,
         derivedMessageRoot,
@@ -79,9 +90,13 @@ import {
          _ ; // dummy variable for unused return value
 
         // STEP 1: check whitelist, or message has been set. 
+        const currentSender = Poseidon.hash(this.sender.toFields());
         nullRootBefore = this.nullifierRoot.getAndRequireEquals();
-        [ derivedNullRoot, _ ] = nullKeyWitness.computeRootAndKey(Constants.WHITELISTED_VALUE);
+        [ derivedNullRoot, derivedNullKey ] = nullKeyWitness.computeRootAndKey(Constants.WHITELISTED_VALUE);
+        // test that the root is valid 
         derivedNullRoot.assertEquals(nullRootBefore, Constants.SPY_CANNOT_SET_MESSAGE_ERROR);
+        // test that the spy key is set in whitelist
+        derivedNullKey.assertEquals(currentSender, Constants.SPY_CANNOT_SET_MESSAGE_ERROR);
   
 
         // STEP 2: check if message already set (this is redundant, as it is already checked in step 1 from nullifierMap)
